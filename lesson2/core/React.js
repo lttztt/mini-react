@@ -28,77 +28,67 @@ function render(el, container) {
       children: [el]
     }
   }
-  // // 根据不同类型创建不同的dom
-  // const dom = el.type === 'TEXT_ELEMENT' ? document.createTextNode("") : document.createElement(el.type)
-
-  // // 添加属性
-  // Object.keys(el.props).forEach(key => {
-  //   if (key !== 'children') {
-  //     dom[key] = el.props[key]
-  //   }
-  // })
-
-  // // 处理子元素
-  // const children = el.props.children
-  // children.forEach(child => {
-  //   render(child, dom)
-  // })
-
-  // // 添加到容器中
-  // container.append(dom)
+}
+function createDom(type) {
+  return type === 'TEXT_ELEMENT' ? document.createTextNode("") : document.createElement(type)
 }
 
-function performWorkOfUnit(work) {
-  // 如果没有dom，就创建dom
-  if (!work.dom) {
-    // 1. 渲染dom
-    const dom = work.dom = work.type === 'TEXT_ELEMENT' ? document.createTextNode("") : document.createElement(work.type)
+function updateProps(dom, props) {
 
-    // 把当前dom添加到父节点中
-    work.parent.dom.append(dom)
-    // 2. 添加props
-    Object.keys(work.props).forEach(key => {
-      if (key !== 'children') {
-        dom[key] = work.props[key]
-      }
-    })
-  }
+  Object.keys(props).forEach(key => {
+    if (key !== 'children') {
+      dom[key] = props[key]
+    }
+  })
+}
 
-  // 3. 处理子元素
-  const children = work.props.children
+function initChildren(fiber) {
+  const children = fiber.props.children
   let prevChild = null
   children.forEach((child, index) => {
     // 为了不破坏原有虚拟dom（child）的结构，我们创建一个新的work
-    const newWork = {
+    const newFiber = {
       type: child.type,
       props: child.props,
       child: null,
-      parent: work,
+      parent: fiber,
       sibling: null,
       dom: null
     }
     // 第一个节点
     if (index === 0) {
-      work.child = newWork
+      fiber.child = newFiber
     } else {
-      prevChild.sibling = newWork
+      prevChild.sibling = newFiber
     }
 
     // 每次都把上一个节点赋值给prevChild
-    prevChild = newWork
+    prevChild = newFiber
   })
+}
+function performWorkOfUnit(fiber) {
+  // 如果没有dom，就创建dom
+  if (!fiber.dom) {
+    const dom = fiber.dom = createDom(fiber.type)
+
+    fiber.parent.dom.append(dom)
+    updateProps(dom, fiber.props)
+  }
+
+  // 3. 处理子元素
+  initChildren(fiber)
 
   // 4. 转换链表,设置好指针 返回下一个要执行的任务
   // 有孩子节点，返回孩子节点
-  if (work.child) {
-    return work.child
+  if (fiber.child) {
+    return fiber.child
   }
   // 没有孩子节点，返回兄弟节点
-  if (work.sibling) {
-    return work.sibling
+  if (fiber.sibling) {
+    return fiber.sibling
   }
   // 否则返回父节点的兄弟节点
-  return work.parent?.sibling
+  return fiber.parent?.sibling
 
 }
 

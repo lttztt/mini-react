@@ -35,6 +35,8 @@ requestIdleCallback(worker);
 
 ## 把渲染的树转化成可以让任务一个接着一个执行的链表
 
+重点：
+
 ### 转化规则是
 
 1. child
