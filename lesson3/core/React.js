@@ -40,13 +40,15 @@ function render(el, container) {
       children: [el] // 传入的组件根节点
     }
   }
+  root = nextUnitOfWork
 }
+// 储存根节点
+let root = null
 function createDom(type) {
   return type === 'TEXT_ELEMENT' ? document.createTextNode("") : document.createElement(type)
 }
 
 function updateProps(dom, props) {
-  // console.log('设置属性');
   Object.keys(props).forEach(key => {
     if (key !== 'children') {
       dom[key] = props[key]
@@ -55,13 +57,9 @@ function updateProps(dom, props) {
 }
 
 function initChildren(fiber) {
-  // console.log('执行initChildren');
   const children = fiber.props.children
-  console.log('children----------');
-  console.log(children);
   let prevChild = null
   children.forEach((child, index) => {
-    // debugger
     // 为了不破坏原有虚拟dom（child）的结构，我们创建一个新的work
     const newFiber = {
       type: child.type,
@@ -78,8 +76,6 @@ function initChildren(fiber) {
       // 每次给当前节点的上一个设置自身为sibling
       prevChild.sibling = newFiber
     }
-    console.log('fiber--------');
-    console.log(fiber);
     // 每次都把上一个节点赋值给prevChild
     prevChild = newFiber
   })
@@ -93,7 +89,8 @@ function performWorkOfUnit(fiber) {
     // console.log('没有dom，就创建dom', fiber.dom);
     const dom = fiber.dom = createDom(fiber.type)
 
-    fiber.parent.dom.append(dom)
+    // 添加一个子节点就添加到父节点的dom中
+    // fiber.parent.dom.append(dom)
     updateProps(dom, fiber.props)
   }
 
@@ -124,11 +121,30 @@ function workLoop(deadline) {
   while (!shouldYield && nextUnitOfWork) {
 
     nextUnitOfWork = performWorkOfUnit(nextUnitOfWork)
+    // 没有任务的时候统一添加到dom
+    // 只执行一次
+    if (!nextUnitOfWork && root) {
+      commitRoot()
+    }
 
     shouldYield = deadline.timeRemaining() < 1
   }
   requestIdleCallback(workLoop)
 
+}
+
+function commitRoot() {
+  commitWork(root.child)
+  // 执行之后清空root
+  root = null
+}
+
+function commitWork(fiber) {
+  // 如果是空节点，就不处理
+  if (!fiber) return
+  fiber.parent.dom.append(fiber.dom)
+  commitWork(fiber.child)
+  commitWork(fiber.sibling)
 }
 
 requestIdleCallback(workLoop)
