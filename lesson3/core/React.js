@@ -63,21 +63,28 @@ function initChildren(fiber, children) {
     prevChild = newFiber
   })
 }
+function updateFunctionComponent(fiber) {
+  const children = [fiber.type(fiber.props)]
+  initChildren(fiber, children)
+}
+
+function updateHostComponent(fiber) {
+  if (!fiber.dom) {
+    const dom = fiber.dom = createDom(fiber.type)
+    updateProps(dom, fiber.props)
+  }
+  const children = fiber.props.children
+  initChildren(fiber, children)
+}
+
 function performWorkOfUnit(fiber) {
   const isFunctionComponent = typeof fiber.type === 'function'
-  // 如果是不是函数组件，就创建dom
-  if (!isFunctionComponent) {
-    if (!fiber.dom) {
-      const dom = fiber.dom = createDom(fiber.type)
-      updateProps(dom, fiber.props)
-    }
+  if (isFunctionComponent) {
+    updateFunctionComponent(fiber)
   } else {
-    // console.log(fiber.type());
+    updateHostComponent(fiber)
   }
-  // 处理函数组件的children包裹成函数
-  const children = isFunctionComponent ? [fiber.type(fiber.props)] : fiber.props.children
-  // 统一使用children参数
-  initChildren(fiber, children)
+
   if (fiber.child) {
     return fiber.child
   }
