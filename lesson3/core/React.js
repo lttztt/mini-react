@@ -14,7 +14,8 @@ function createElement(type, props, ...children) {
     props: {
       ...props,
       children: children.map(child => {
-        return typeof child === 'string' ? createTextNode(child) : child
+        const isTextNode = typeof child === 'string' || typeof child === 'number'
+        return isTextNode ? createTextNode(child) : child
       })
     }
   }
@@ -43,8 +44,7 @@ function updateProps(dom, props) {
   })
 }
 
-function initChildren(fiber) {
-  const children = fiber.props.children
+function initChildren(fiber, children) {
   let prevChild = null
   children.forEach((child, index) => {
     const newFiber = {
@@ -66,21 +66,35 @@ function initChildren(fiber) {
 function performWorkOfUnit(fiber) {
   const isFunctionComponent = typeof fiber.type === 'function'
   // 如果是不是函数组件，就创建dom
-  if (isFunctionComponent) {
+  if (!isFunctionComponent) {
+    if (!fiber.dom) {
+      const dom = fiber.dom = createDom(fiber.type)
+      updateProps(dom, fiber.props)
+    }
+  } else {
+    // console.log(fiber.type());
   }
-  if (!fiber.dom) {
-    const dom = fiber.dom = createDom(fiber.type)
-
-    updateProps(dom, fiber.props)
-  }
-  initChildren(fiber)
+  // 处理函数组件的children包裹成函数
+  const children = isFunctionComponent ? [fiber.type(fiber.props)] : fiber.props.children
+  // 统一使用children参数
+  initChildren(fiber, children)
   if (fiber.child) {
     return fiber.child
   }
-  if (fiber.sibling) {
-    return fiber.sibling
+  // 下边的包括了找兄弟节点的逻辑
+
+  // if (fiber.sibling) {
+  //   return fiber.sibling
+  // }
+
+  // 如果父级节点没有兄弟，就找到父节点的父级一直网上找 的兄弟节点
+  let nextFiber = fiber
+  while (nextFiber) {
+    if (nextFiber.sibling) {
+      return nextFiber.sibling
+    }
+    nextFiber = nextFiber.parent
   }
-  return fiber.parent?.sibling
 
 }
 
@@ -106,10 +120,18 @@ function commitRoot() {
   commitWork(root.child)
   root = null
 }
-
+// 递归调用
 function commitWork(fiber) {
   if (!fiber) return
-  fiber.parent.dom.append(fiber.dom)
+  // 由于FC没有dom，所以需要找到最近的有dom的父级
+  let parentFiber = fiber.parent
+  while (!parentFiber.dom) {
+    parentFiber = parentFiber.parent
+  }
+  // 如果有dom，就添加到父级dom上，不然会添加一个null
+  if (fiber.dom) {
+    parentFiber.dom.append(fiber.dom)
+  }
   commitWork(fiber.child)
   commitWork(fiber.sibling)
 }
